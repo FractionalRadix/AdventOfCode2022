@@ -22,7 +22,6 @@ parse [] = []
 parse (x:xs) = (listParse x) : parse xs
 
 -- Answer to the first question
---answer1 filecontent = maximum $ map sum $ parse $ split $ lines filecontent
 answer1 list = maximum list
 
 secondHighest :: [Int] -> Int
