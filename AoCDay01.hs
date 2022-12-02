@@ -1,3 +1,5 @@
+import Data.List
+
 main ::  IO()
 main = do
   filecontent <- readFile "D:\\Haskell\\MyPrograms\\AoC_2022\\AoCDay01.txt"
@@ -24,13 +26,7 @@ parse (x:xs) = (listParse x) : parse xs
 -- Answer to the first question
 answer1 list = maximum list
 
-secondHighest :: [Int] -> Int
-secondHighest l = maximum (filter ( < (maximum l) ) l)
-
-thirdHighest :: [Int] -> Int
-thirdHighest l = maximum (filter ( < (secondHighest l) ) l)
-
--- There are certainly more efficient ways to do this kind of thing. But this gets the job done in time.
-answer2 list = maximum list + secondHighest list + thirdHighest list
+-- Answer to the second question
+answer2 list = sum $ take 3 $ reverse $ sort list
 
 testInput = ["1000","2000","3000","","4000","","5000","6000","","7000","8000","9000","","10000"]
