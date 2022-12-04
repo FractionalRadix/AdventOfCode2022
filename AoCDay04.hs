@@ -1,5 +1,3 @@
--- 536, 845
-
 main ::  IO()
 main = do
   filecontent <- readFile "D:\\Haskell\\MyPrograms\\AoC_2022\\AoCDay04.txt"

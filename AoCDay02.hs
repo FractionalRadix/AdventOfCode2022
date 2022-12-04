@@ -1,7 +1,7 @@
 main ::  IO()
 main = do
   filecontent <- readFile "D:\\Haskell\\MyPrograms\\AoC_2022\\AoCDay02.txt"
-  print $ sum $ map score  $ map parseLine $ lines filecontent 
+  print $ sum $ map score $ map parseLine $ lines filecontent 
   print $ sum $ map score2 $ map parseLine $ lines filecontent
 
 parseLine :: String -> (Char, Char)
