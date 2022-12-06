@@ -1,5 +1,3 @@
-import Data.Char
-
 main ::  IO()
 main = do
   filecontent <- readFile "D:\\Haskell\\MyPrograms\\AoC_2022\\AoCDay06.txt"
