@@ -5,23 +5,33 @@ main = do
   filecontent <- readFile "D:\\Haskell\\MyPrograms\\AoC_2022\\AoCDay06.txt"
   let inputLines = lines filecontent
   print inputLines
-  print $ startOfPacket $ inputLines!!0  --  7
+  let answer1 = startOfPacket $ inputLines!!0
+  print $ "First packet marker: " ++ show answer1
+  let answer2 = startOfMessage $ inputLines!!0
+  print $ "First message marker: " ++ show answer2
+  --print $ startOfPacket $ inputLines!!0  --  7
   --print $ startOfPacket $ inputLines!!1  --  5
   --print $ startOfPacket $ inputLines!!2  --  6
   --print $ startOfPacket $ inputLines!!3  -- 10
   --print $ startOfPacket $ inputLines!!4  -- 11
+  --print $ startOfMessage $ inputLines!!0  --  19
+  --print $ startOfMessage $ inputLines!!1  --  23
+  --print $ startOfMessage $ inputLines!!2  --  23
+  --print $ startOfMessage $ inputLines!!3  -- 29
+  --print $ startOfMessage $ inputLines!!4  -- 26
+
 
 startOfPacket :: String -> Int
 startOfPacket str = 3 + firstFourDifferent str
 
-fourDifferentParameters :: (Ord a) => a -> a -> a -> a -> Bool
-fourDifferentParameters a b c d = a /= b && a /= c && a /= d && b /= c && b /= d && c /= d
-
+startOfMessage :: String -> Int
+startOfMessage str = 13 + firstFourteenDifferent str
 
 firstFourDifferent :: (Ord a) => [a] -> Int
-firstFourDifferent (x:y:z:w:xs)  
- | fourDifferentParameters x y z w   = 1
- | otherwise                         = 1 + firstFourDifferent (y:z:w:xs)
+firstFourDifferent (x:xs)  = if (allDifferent (take 4 (x:xs))) then 1 else 1 + firstFourDifferent xs
+
+firstFourteenDifferent :: (Ord a) => [a] -> Int
+firstFourteenDifferent (x:xs) = if (allDifferent (take 14 (x:xs))) then 1 else 1 + firstFourteenDifferent xs
 
 -- Test if the elements in a list are all different.
 -- In other words, test if a list does NOT contain duplicates.
