@@ -17,8 +17,6 @@ main = do
   print $ "Lowest FROM index (0-based):" ++ show lowestFromIdx 
   let lowestToIdx = minimum $ map (\(a,b,c) -> c) parsedInstructions
   print $ "Lowest TO index (0-based):" ++ show lowestToIdx
-
-
   let highestFromIdx = maximum $ map (\(a,b,c) -> b) parsedInstructions
   print $ "Highest FROM index (0-based):" ++ show highestFromIdx 
   let highestToIdx = maximum $ map (\(a,b,c) -> c) parsedInstructions
@@ -29,24 +27,25 @@ main = do
   let splitExample = splitAtIndices 3 9 alphabetStrings
   print $ splitExample
 
-  print $ "allStacks!!8 == " ++ (allStacks!!8)
-  -- TODO!+ Loop...
   print $ parsedInstructions!!0
-  let firstStep = applyInstruction allStacks (parsedInstructions!!0)
+  let firstStep = applyInstruction False allStacks (parsedInstructions!!0)
   print $ firstStep
-  --let secondStep = applyInstruction firstStep (parsedInstructions!!1)
-  --print $ secondStep
-  --let thirdStep = applyInstruction secondStep (parsedInstructions!!2)
-  --print $ thirdStep
-  --let fourthStep = applyInstruction thirdStep (parsedInstructions!!3)
-  --print $ fourthStep
+  let secondStep = applyInstruction False firstStep (parsedInstructions!!1)
+  print $ secondStep
+  let thirdStep = applyInstruction False secondStep (parsedInstructions!!2)
+  print $ thirdStep
+  let fourthStep = applyInstruction False thirdStep (parsedInstructions!!3)
+  print $ fourthStep
 
-  --let answer1 = map head fourthStep
-  --print $ "Answer 1: " ++ answer1
+  --let answer2' = map head fourthStep
+  --print $ "Answer 2: " ++ answer2'
 
-  let allSteps = applyInstructions allStacks parsedInstructions
-  let answer1' = map head allSteps
-  print $ "Answer 1: " ++ answer1'    -- Answer is   "VWLCWGSDQ" (without double-quotes).
+  let allStepsUsingCrateMover9000 = applyInstructions True allStacks parsedInstructions
+  let answer1 = map head allStepsUsingCrateMover9000
+  print $ "Answer 1: " ++ answer1    -- Answer is   "VWLCWGSDQ" (without double-quotes).
+  let allStepsUsingCrateMover9001 = applyInstructions False allStacks parsedInstructions
+  let answer2 = map head allStepsUsingCrateMover9001
+  print $ "Answer 2: " ++ answer2
 
 
 containsCrate :: String -> Bool
@@ -82,19 +81,19 @@ splitAtIndices n1 n2 list = (firstPart, list!!lowestIdx, middlePart, list!!highe
        lastPart = drop (highestIdx + 1) list
 
 
--- Function to apply a single instruction
 -- Note that the instructions here are 0-based! The parser has already taken care of that.
-applyInstruction :: [String] -> (Int, Int, Int) -> [String]
-applyInstruction stacks (nrOfCrates, from, to) = newFirstPart ++ [newStackWithLowIdx] ++ newMiddlePart ++ [newStackWithHighIdx] ++ newLastPart
+applyInstruction :: Bool -> [String] -> (Int, Int, Int) -> [String]
+applyInstruction applyReverse stacks (nrOfCrates, from, to) = newFirstPart ++ [newStackWithLowIdx] ++ newMiddlePart ++ [newStackWithHighIdx] ++ newLastPart
   where (newFirstPart, stackWithLowIdx, newMiddlePart, stackWithHighIdx, newLastPart) = splitAtIndices from to stacks
-        headFrom = reverse $ take nrOfCrates $ stacks!!from
+        headFrom = if (applyReverse) then reverse $ take nrOfCrates $ stacks!!from else take nrOfCrates $ stacks!!from
         tailFrom = drop nrOfCrates $ stacks!!from
         toStack = stacks!!to
         newStackWithLowIdx = if from < to then tailFrom else headFrom ++ toStack
         newStackWithHighIdx = if from < to then headFrom ++ toStack else tailFrom
 
 -- Function to apply a list of instructions
-applyInstructions :: [String] -> [(Int, Int, Int)] -> [String]
-applyInstructions list [] = list
-applyInstructions list (x:xs) = applyInstructions result xs
-  where result = applyInstruction list x
+applyInstructions :: Bool -> [String] -> [(Int, Int, Int)] -> [String]
+applyInstructions applyReverse list [] = list
+applyInstructions applyReverse list (x:xs) = applyInstructions applyReverse result xs
+  where result = applyInstruction applyReverse list x
+
