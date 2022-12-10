@@ -5,47 +5,16 @@ main = do
   filecontent <- readFile "D:\\Haskell\\MyPrograms\\AoC_2022\\AoCDay05.txt"
   let inputLines = lines filecontent
   let stackLines = takeWhile containsCrate inputLines
-  print $  zip [1..] stackLines
   let instructions = tail $ dropWhile (/= []) inputLines
-  print $ zip [1..] instructions
   let allStacks = map trimSpaces $ map (stackNumberN stackLines) [1..length(stackLines)+1]
-  print $ zip [1..] allStacks
   let parsedInstructions = map parseInstruction instructions
-  print $ zip [1..] parsedInstructions
-
-  let lowestFromIdx = minimum $ map (\(a,b,c) -> b) parsedInstructions
-  print $ "Lowest FROM index (0-based):" ++ show lowestFromIdx 
-  let lowestToIdx = minimum $ map (\(a,b,c) -> c) parsedInstructions
-  print $ "Lowest TO index (0-based):" ++ show lowestToIdx
-  let highestFromIdx = maximum $ map (\(a,b,c) -> b) parsedInstructions
-  print $ "Highest FROM index (0-based):" ++ show highestFromIdx 
-  let highestToIdx = maximum $ map (\(a,b,c) -> c) parsedInstructions
-  print $ "Highest TO index (0-based):" ++ show highestToIdx
-
-  let alphabetStrings = map (\c -> [c]) ['a'..'z']
-  print alphabetStrings
-  let splitExample = splitAtIndices 3 9 alphabetStrings
-  print $ splitExample
-
-  print $ parsedInstructions!!0
-  let firstStep = applyInstruction False allStacks (parsedInstructions!!0)
-  print $ firstStep
-  let secondStep = applyInstruction False firstStep (parsedInstructions!!1)
-  print $ secondStep
-  let thirdStep = applyInstruction False secondStep (parsedInstructions!!2)
-  print $ thirdStep
-  let fourthStep = applyInstruction False thirdStep (parsedInstructions!!3)
-  print $ fourthStep
-
-  --let answer2' = map head fourthStep
-  --print $ "Answer 2: " ++ answer2'
 
   let allStepsUsingCrateMover9000 = applyInstructions True allStacks parsedInstructions
   let answer1 = map head allStepsUsingCrateMover9000
   print $ "Answer 1: " ++ answer1    -- Answer is   "VWLCWGSDQ" (without double-quotes).
   let allStepsUsingCrateMover9001 = applyInstructions False allStacks parsedInstructions
   let answer2 = map head allStepsUsingCrateMover9001
-  print $ "Answer 2: " ++ answer2
+  print $ "Answer 2: " ++ answer2  -- Answer is "TCGLQSLPW" (again, without double-quotes).
 
 
 containsCrate :: String -> Bool
