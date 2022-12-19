@@ -17,32 +17,39 @@ main = do
 
 
 -- execute command-list current-directory current-filesystem -> remaining-command-list updated-current-directory new-filesystem
---execute :: [String] -> [String] -> FSEntry -> [String] -> [String] -> FSEntry
+execute :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
 --execute [] curDir curFS = [] curDir curFS  -- hopefully that won't result in an endless loop somewhere.... see if I can prevent that.
---execute (cmdHead:cmdTail) curDir curFS = 
-  --if "$ ls" `isPrefixOf` cmdHead
-  --then executeLs cmdTail curDir curFS
-  --else if "$ cd .." `isPrefixOf` cmdHead then executeOneDirectoryUp cmdTail curDir curFS
+execute ((cmdHead:cmdTail), curDir, curFS) = 
+  if "$ ls" `isPrefixOf` cmdHead
+  then executeLs (cmdTail, curDir, curFS)
+  else if "$ cd .." `isPrefixOf` cmdHead then executeOneDirectoryUp (cmdTail, curDir, curFS)
   --else if "$ cd /" `isPrefixOf` cmdHead then executeGoToRootDir cmdTail curDir curFS
   --else if "$ cd " `isPrefixOf` cmdHead then execute executeCd' cmdTail curDir curFS
   --else cmdTail curDir dummyFS --TODO!~ 
+  else error "Unknown AoC Communicator command" --TODO?- Remove when the code is ready for all cases?
 
--- According to ":t" the type is... "(t1 -> FSEntry -> t2) -> t1 -> p -> t2" ...??
---   ---> Because you're trying to return basically a function (3-part thing).
---        Maybe make a "State" class? State = remaining-command-list current-dir current-fs . Or just a Tuple...
---executeLs :: ([String] -> [String] -> FSEntry) -> ([String] -> [String] -> FSEntry)
---executeLs commandList curDir curFS = commandList curDir dummyFS  --TODO!+ Probably some "takeWhile (head cmd /= '$')" for a list of FSEntry, then parse all those entries and add them to the new file system.
-executeLs :: [String] -> [String] -> FSEntry -> ([String], FSEntry)
-executeLs commandList curDir curFS = (remainingCommands, Directory "dummy" parsedEntries)
+
+-- executeLs (command list, current directory, current file system) -> (remaining commands, current directory, new current file system)
+executeLs :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
+executeLs (commandList, curDir, curFS) = (remainingCommands, curDir, Directory "dummy" parsedEntries)
   where entries = takeWhile (\x -> head(x) /= '$') commandList
         parsedEntries = map parseEntry entries
         remainingCommands = dropWhile (\x -> head (x) /= '$') commandList
 
 testCmdList = ["dir a", "14848514 b.txt", "8504156 c.dat", "dir d", "$ cd a"]
-testLs = executeLs testCmdList ["/"] (Directory "/" [])
+testLs = executeLs (testCmdList, ["/"], (Directory "/" []))
 --TODO!+ executeGoToRootDir commandList curDir curFS = command curDir dummyFS --TODO!+
 --TODO!+ executeOneDirectoryUp commandList curDir curFS = commandList curDir dummyFS  --TODO!+
 --TODO!+ executeCd' commandList curDir curFS = commandList curDir dummyFS -- TODO!+
+
+executeOneDirectoryUp (cmdList, currentPath, fs) = (cmdList, init currentPath, fs)
+
+actual4   = executeOneDirectoryUp (["ls"], ["/", "you", "are", "here"], dummyFS)
+expected4 = (["ls"], ["/", "you", "are"], dummyFS)
+test4 = actual4 == expected4
+
+-- executeCd (command list, current directory, current file system) -> (remaining commands, new directory, current file system)
+
 
 dummyFS = (File "dummy" 2048)
 --TODO!- Used as a placeholder while building the functions.
