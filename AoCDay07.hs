@@ -15,32 +15,57 @@ main = do
   let currentDirectory = executeCdList [] ["$ cd /", "$ cd this", "$ cd is", "$ cd ..", "$ cd was","$ cd /", "$ cd that", "$ cd will", "$ cd work"]
   print currentDirectory
 
+  let filesystem = executeList (inputLines, [], (Directory "/"[]))
+  print $ filesystem
+
 
 -- execute command-list current-directory current-filesystem -> remaining-command-list updated-current-directory new-filesystem
 execute :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
---execute [] curDir curFS = [] curDir curFS  -- hopefully that won't result in an endless loop somewhere.... see if I can prevent that.
+--execute ([], curDir, curFS) = ([], curDir, curFS)  -- hopefully that won't result in an endless loop somewhere.... see if I can prevent that.
 execute ((cmdHead:cmdTail), curDir, curFS) = 
-  if "$ ls" `isPrefixOf` cmdHead
-  then executeLs (cmdTail, curDir, curFS)
+  if "$ ls" `isPrefixOf` cmdHead then executeLs (cmdTail, curDir, curFS)
   else if "$ cd .." `isPrefixOf` cmdHead then executeOneDirectoryUp (cmdTail, curDir, curFS)
-  --else if "$ cd /" `isPrefixOf` cmdHead then executeGoToRootDir cmdTail curDir curFS
-  --else if "$ cd " `isPrefixOf` cmdHead then execute executeCd' cmdTail curDir curFS
-  --else cmdTail curDir dummyFS --TODO!~ 
+  else if "$ cd /" `isPrefixOf` cmdHead then executeGoToRootDir (cmdTail, curDir, curFS)
+  else if "$ cd " `isPrefixOf` cmdHead then executeCd (drop 5 cmdHead) (cmdTail, curDir, curFS)
   else error "Unknown AoC Communicator command" --TODO?- Remove when the code is ready for all cases?
 
 
+-- executeList command-list current-directory current-filesystem -> new-filesystem
+executeList :: ([String], [String], FSEntry) -> FSEntry
+executeList ([], curDir, curFS) = curFS
+executeList ((cmdHead:cmdTail), curDir, curFS) = 
+  if "$ ls" `isPrefixOf` cmdHead then 
+     executeList $ executeLs (cmdTail, curDir, curFS)
+  else if "$ cd .." `isPrefixOf` cmdHead then 
+     executeList $ executeOneDirectoryUp (cmdTail, curDir, curFS)
+  else if "$ cd /" `isPrefixOf` cmdHead then 
+     executeList $ executeGoToRootDir (cmdTail, curDir, curFS)
+  else if "$ cd " `isPrefixOf` cmdHead then 
+     executeList $ executeCd (drop 5 cmdHead) (cmdTail, curDir, curFS)
+  else 
+     error "Unknown AoC Communicator command" --TODO?- Remove when the code is ready for all cases?
+
+
+
 -- executeLs (command list, current directory, current file system) -> (remaining commands, current directory, new current file system)
-executeLs :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
-executeLs (commandList, curDir, curFS) = (remainingCommands, curDir, Directory "dummy" parsedEntries)
+--TODO!~ Insert the "parsedEntries" in the right place!
+executeLs' :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
+executeLs' (commandList, curDir, (Directory name _)) = (remainingCommands, curDir, Directory name parsedEntries)
   where entries = takeWhile (\x -> head(x) /= '$') commandList
         parsedEntries = map parseEntry entries
         remainingCommands = dropWhile (\x -> head (x) /= '$') commandList
 
+executeLs :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
+executeLs (commandList, curDir, curFS) = (remainingCommands, curDir, newFS)
+  where entries = takeWhile (\x -> head(x) /= '$') commandList
+        parsedEntries = map parseEntry entries
+        remainingCommands = dropWhile (\x -> head (x) /= '$') commandList
+        newFS = addFSEntries curDir parsedEntries curFS
+
+actualX = addFSEntries  ["/", "you", "are", "here"] [File "a.txt" 1024, File "b.txt" 2048] (Directory "/" [Directory "you" [Directory "are" [Directory "here" [File "c.txt" 4096] ]]])
+
 testCmdList = ["dir a", "14848514 b.txt", "8504156 c.dat", "dir d", "$ cd a"]
 testLs = executeLs (testCmdList, ["/"], (Directory "/" []))
---TODO!+ executeGoToRootDir commandList curDir curFS = command curDir dummyFS --TODO!+
---TODO!+ executeOneDirectoryUp commandList curDir curFS = commandList curDir dummyFS  --TODO!+
---TODO!+ executeCd' commandList curDir curFS = commandList curDir dummyFS -- TODO!+
 
 executeOneDirectoryUp (cmdList, currentPath, fs) = (cmdList, init currentPath, fs)
 
@@ -48,8 +73,30 @@ actual4   = executeOneDirectoryUp (["ls"], ["/", "you", "are", "here"], dummyFS)
 expected4 = (["ls"], ["/", "you", "are"], dummyFS)
 test4 = actual4 == expected4
 
--- executeCd (command list, current directory, current file system) -> (remaining commands, new directory, current file system)
+executeGoToRootDir :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
+executeGoToRootDir (cmdList, currentPath, fs) = (cmdList, ["/"], fs) -- Not sure if it should go to {"/"]  or to [] ...
 
+executeCd :: String -> ([String], [String], FSEntry) -> ([String], [String], FSEntry)
+executeCd newDir (cmdList, currentPath, fs) = (cmdList, currentPath ++ [newDir], fs) --TODO?+ Add a check to see if that directory is present...?
+
+-- Given a file system simulation (FSEntry), a path, and a directory name: check if the directory name exists in the file system simulation.
+--directoryExists :: String -> [String] -> FSEntry -> Bool
+--directoryExists dirName1 [] (Directory dirName2 _) = dirName1 == dirName2
+--directoryExists dirName1 [] (File _ _) = False
+--directoryExists dirName1 (x:xs) (Directory dirName2 contents) =
+--   if x /= dirName2 
+--   then False
+--   else directoryExists dirName1 xs (unJust $ subdir)
+-- where subdir = unJust $ selectDirectory x
+
+-- Test
+
+--testDir2 = Directory "/" [(Directory "Mickey" [Directory "Mouse" []])]
+--directoryExists "Mouse" ["/", "Mickey"] (Directory "/" [(Directory "Mickey" [Directory "Mouse" []])])
+--  dirName1 = "Mouse"
+--  (x:xs) = ("/":["Mickey", "Mouse"])
+--  dirName2 = "/"
+--directoryExists "Mouse" ["Mickey", "Mouse"] testDir2
 
 dummyFS = (File "dummy" 2048)
 --TODO!- Used as a placeholder while building the functions.
@@ -107,19 +154,31 @@ expected2 = Directory "d1" [Directory "d11" [File "new" 1024], Directory "d12"[F
 test2 = testFS actual2 expected2
 
 --------------------------------------------------------------------------------------------------------------------------
--- addFile
+-- addFSEntry
 --------------------------------------------------------------------------------------------------------------------------
 
--- addFile: copy the file system, if the current directory is precisely a given subfolder, then add a file as well.
-addFile :: [String] -> FSEntry -> FSEntry -> FSEntry
-addFile _                     _       (File      name size    ) = File name size -- Can't add a file to a file, only to a directory.
-addFile [targetDirectoryName] newFile (Directory name contents) = 
+-- addFSEntry: copy the file system, if the current directory is precisely a given subfolder, then add a given FSEntry (File or Directory) as well.
+-- addFSEntry :: path, file or directory to add, current file system -> new file system
+addFSEntry :: [String] -> FSEntry -> FSEntry -> FSEntry
+addFSEntry _                     _       (File      name size    ) = File name size -- Can't add a file to a file, only to a directory.
+addFSEntry [targetDirectoryName] newFile (Directory name contents) = 
     if targetDirectoryName == name
     then Directory name (newFile:newContents)
     else Directory name (newContents)
   where newContents = map (copyFS) contents  -- Note that since we're at "[targetDirectoryName]" the subdirs aren't on the path, that path is now "[]" ....
-addFile (x:xs) newFile (Directory name contents) = Directory name newContents
-  where newContents = map (addFile xs newFile) contents
+addFSEntry (x:xs) newFile (Directory name contents) = Directory name newContents
+  where newContents = map (addFSEntry xs newFile) contents
+
+--TODO?+ Add unit tests?
+addFSEntries :: [String] -> [FSEntry] -> FSEntry -> FSEntry
+addFSEntries _ _ (File name size) = File name size -- Can't add files or directories to files, only to directories.
+addFSEntries [targetDirectoryName] newEntries (Directory name contents) =
+    if targetDirectoryName == name
+    then Directory name (newEntries ++ newContents)
+    else Directory name newContents
+  where newContents = map (copyFS) contents
+addFSEntries (x:xs) newFSEntries (Directory name contents) = Directory name newContents
+  where newContents = map (addFSEntries xs newFSEntries) contents
 
 testdir = Directory "d1" 
   [  Directory "d11" [], 
@@ -133,7 +192,7 @@ testdir = Directory "d1"
 testfile1 = File "fa.txt" 1024
 
 
-actual3 = addFile ["d1", "d12", "d122"] (File "fa.txt" 2048) testdir
+actual3 = addFSEntry ["d1", "d12", "d122"] (File "fa.txt" 2048) testdir
 expected3 = Directory "d1" 
   [  Directory "d11" [], 
      Directory "d12" 
@@ -159,13 +218,13 @@ replaceElt l n x = (take n l) ++ [x] ++ (drop (n+1) l)
 -- Parse a single "CD" command.
 -- The current path is passed as an array of String, where each element is a directory.
 -- For example, "/this/is/my/path" would be represented as ["this", "is", "my", "path"].
-executeCd :: [String] -> String -> [String]
-executeCd path "$ cd /"  = []
-executeCd path "$ cd .." = init path
-executeCd path ('$':' ':'c':'d':' ':xs) = path ++ [xs]
+executeCd' :: [String] -> String -> [String]
+executeCd' path "$ cd /"  = []
+executeCd' path "$ cd .." = init path
+executeCd' path ('$':' ':'c':'d':' ':xs) = path ++ [xs]
 
 executeCdList path [] = path
-executeCdList path (x:xs) = executeCdList (executeCd path x) xs
+executeCdList path (x:xs) = executeCdList (executeCd' path x) xs
 
 --testParseCd = parseCd [] ["$ cd /", "$ cd this", "$ cd is", "$ cd ..", "$ cd was","$ cd /", "$ cd that", "$ cd will", "$ cd work"]
   --  /this/is
