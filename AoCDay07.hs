@@ -10,25 +10,71 @@ main = do
   --let answer2 = 
   --print $ "First message marker: " ++ show answer2
 
-  print $ replaceElt "whitefrag" 6 'l' -- expected: whiteflag
-
   let currentDirectory = executeCdList [] ["$ cd /", "$ cd this", "$ cd is", "$ cd ..", "$ cd was","$ cd /", "$ cd that", "$ cd will", "$ cd work"]
   print currentDirectory
 
   let filesystem = executeList (inputLines, [], (Directory "/"[]))
   print $ filesystem
 
+  let totalSize = fsEntrySize filesystem
+  print totalSize
+
+  let annotedFileSystem = calculateSizes filesystem
+  print annotedFileSystem
+
+  print "Almost there..."
+
+  let dirSizes = directorySizes annotedFileSystem
+  print dirSizes
+
+  let smallSizes = [n|(_,n) <- dirSizes, n <=  100000]
+  print smallSizes
+
+  let answer1 = sum smallSizes
+  print $ "The sum of all directories whose size is less than  100000 is: " ++ show answer1
+
+  -- I got "1949099" and that's too high...
+
+
+directorySizes :: FSEntryWithSize -> [(String, Int)]
+directorySizes (FileWithSize _ _) = []
+directorySizes (DirectoryWithSize name size contents) = [(name, size)] ++ directorySizesList contents
+
+directorySizesList :: [FSEntryWithSize] -> [(String, Int)]
+directorySizesList [] = []
+directorySizesList (x:xs) = head ++ tail
+  where head = directorySizes x
+        tail = directorySizesList xs
+
+-- A directory is a list of files and directories.
+-- Let's call "file or directory" an FSEntry (File System Entry).
+data FSEntry = File String Int | Directory String [FSEntry] deriving (Show, Eq)
+
+data FSEntryWithSize = FileWithSize String Int | DirectoryWithSize String Int [FSEntryWithSize] deriving (Show, Eq)
+
+calculateSizes :: FSEntry -> FSEntryWithSize
+calculateSizes (File name size) = (FileWithSize name size)
+calculateSizes (Directory name contents) = (DirectoryWithSize name size sizedContents)
+  where sizedContents = map calculateSizes contents
+        size = sum (map getSize sizedContents)
+
+getSize :: FSEntryWithSize -> Int
+getSize (FileWithSize _ n) = n
+getSize (DirectoryWithSize _ n _) = n
+
+fsEntrySize :: FSEntry -> Int
+fsEntrySize (File _ n) = n
+fsEntrySize (Directory _ contents) = sum $ map fsEntrySize contents
 
 -- execute command-list current-directory current-filesystem -> remaining-command-list updated-current-directory new-filesystem
+-- Note that we do NOT provide a handler for the situation where the command list is empty. That situation is deliberately not defined.
 execute :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
---execute ([], curDir, curFS) = ([], curDir, curFS)  -- hopefully that won't result in an endless loop somewhere.... see if I can prevent that.
 execute ((cmdHead:cmdTail), curDir, curFS) = 
   if "$ ls" `isPrefixOf` cmdHead then executeLs (cmdTail, curDir, curFS)
   else if "$ cd .." `isPrefixOf` cmdHead then executeOneDirectoryUp (cmdTail, curDir, curFS)
   else if "$ cd /" `isPrefixOf` cmdHead then executeGoToRootDir (cmdTail, curDir, curFS)
   else if "$ cd " `isPrefixOf` cmdHead then executeCd (drop 5 cmdHead) (cmdTail, curDir, curFS)
   else error "Unknown AoC Communicator command" --TODO?- Remove when the code is ready for all cases?
-
 
 -- executeList command-list current-directory current-filesystem -> new-filesystem
 executeList :: ([String], [String], FSEntry) -> FSEntry
@@ -45,16 +91,6 @@ executeList ((cmdHead:cmdTail), curDir, curFS) =
   else 
      error "Unknown AoC Communicator command" --TODO?- Remove when the code is ready for all cases?
 
-
-
--- executeLs (command list, current directory, current file system) -> (remaining commands, current directory, new current file system)
---TODO!~ Insert the "parsedEntries" in the right place!
-executeLs' :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
-executeLs' (commandList, curDir, (Directory name _)) = (remainingCommands, curDir, Directory name parsedEntries)
-  where entries = takeWhile (\x -> head(x) /= '$') commandList
-        parsedEntries = map parseEntry entries
-        remainingCommands = dropWhile (\x -> head (x) /= '$') commandList
-
 executeLs :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
 executeLs (commandList, curDir, curFS) = (remainingCommands, curDir, newFS)
   where entries = takeWhile (\x -> head(x) /= '$') commandList
@@ -62,15 +98,13 @@ executeLs (commandList, curDir, curFS) = (remainingCommands, curDir, newFS)
         remainingCommands = dropWhile (\x -> head (x) /= '$') commandList
         newFS = addFSEntries curDir parsedEntries curFS
 
-actualX = addFSEntries  ["/", "you", "are", "here"] [File "a.txt" 1024, File "b.txt" 2048] (Directory "/" [Directory "you" [Directory "are" [Directory "here" [File "c.txt" 4096] ]]])
-
 testCmdList = ["dir a", "14848514 b.txt", "8504156 c.dat", "dir d", "$ cd a"]
 testLs = executeLs (testCmdList, ["/"], (Directory "/" []))
 
 executeOneDirectoryUp (cmdList, currentPath, fs) = (cmdList, init currentPath, fs)
 
-actual4   = executeOneDirectoryUp (["ls"], ["/", "you", "are", "here"], dummyFS)
-expected4 = (["ls"], ["/", "you", "are"], dummyFS)
+actual4   = executeOneDirectoryUp (["ls"], ["/", "you", "are", "here"], (File "dummy" 2048))
+expected4 = (["ls"], ["/", "you", "are"], (File "dummy" 2048))
 test4 = actual4 == expected4
 
 executeGoToRootDir :: ([String], [String], FSEntry) -> ([String], [String], FSEntry)
@@ -79,28 +113,6 @@ executeGoToRootDir (cmdList, currentPath, fs) = (cmdList, ["/"], fs) -- Not sure
 executeCd :: String -> ([String], [String], FSEntry) -> ([String], [String], FSEntry)
 executeCd newDir (cmdList, currentPath, fs) = (cmdList, currentPath ++ [newDir], fs) --TODO?+ Add a check to see if that directory is present...?
 
--- Given a file system simulation (FSEntry), a path, and a directory name: check if the directory name exists in the file system simulation.
---directoryExists :: String -> [String] -> FSEntry -> Bool
---directoryExists dirName1 [] (Directory dirName2 _) = dirName1 == dirName2
---directoryExists dirName1 [] (File _ _) = False
---directoryExists dirName1 (x:xs) (Directory dirName2 contents) =
---   if x /= dirName2 
---   then False
---   else directoryExists dirName1 xs (unJust $ subdir)
--- where subdir = unJust $ selectDirectory x
-
--- Test
-
---testDir2 = Directory "/" [(Directory "Mickey" [Directory "Mouse" []])]
---directoryExists "Mouse" ["/", "Mickey"] (Directory "/" [(Directory "Mickey" [Directory "Mouse" []])])
---  dirName1 = "Mouse"
---  (x:xs) = ("/":["Mickey", "Mouse"])
---  dirName2 = "/"
---directoryExists "Mouse" ["Mickey", "Mouse"] testDir2
-
-dummyFS = (File "dummy" 2048)
---TODO!- Used as a placeholder while building the functions.
-
 parseEntry :: String -> FSEntry
 parseEntry str =
     if firstPart == "dir" 
@@ -108,10 +120,6 @@ parseEntry str =
     else (File secondPart (read $ firstPart :: Int))
   where firstPart = takeWhile (/= ' ') str
         secondPart = tail $ dropWhile (/= ' ') str
-
--- A directory is a list of files and directories.
--- Let's call "file or directory" an FSEntry (File System Entry).
-data FSEntry = File String Int | Directory String [FSEntry] deriving (Show, Eq)
 
 -- Given a File System Entry (whether file or directory), get the name of that entry.
 entryName :: FSEntry -> String
@@ -211,9 +219,6 @@ test3 = testFS actual3 expected3
 
 testFS :: FSEntry -> FSEntry -> Bool
 testFS t1 t2 = t1 == t2
-
-replaceElt :: [a] -> Int -> a -> [a]
-replaceElt l n x = (take n l) ++ [x] ++ (drop (n+1) l)
 
 -- Parse a single "CD" command.
 -- The current path is passed as an array of String, where each element is a directory.
