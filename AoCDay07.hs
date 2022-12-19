@@ -16,6 +16,45 @@ main = do
   print currentDirectory
 
 
+-- execute command-list current-directory current-filesystem -> remaining-command-list updated-current-directory new-filesystem
+--execute :: [String] -> [String] -> FSEntry -> [String] -> [String] -> FSEntry
+--execute [] curDir curFS = [] curDir curFS  -- hopefully that won't result in an endless loop somewhere.... see if I can prevent that.
+--execute (cmdHead:cmdTail) curDir curFS = 
+  --if "$ ls" `isPrefixOf` cmdHead
+  --then executeLs cmdTail curDir curFS
+  --else if "$ cd .." `isPrefixOf` cmdHead then executeOneDirectoryUp cmdTail curDir curFS
+  --else if "$ cd /" `isPrefixOf` cmdHead then executeGoToRootDir cmdTail curDir curFS
+  --else if "$ cd " `isPrefixOf` cmdHead then execute executeCd' cmdTail curDir curFS
+  --else cmdTail curDir dummyFS --TODO!~ 
+
+-- According to ":t" the type is... "(t1 -> FSEntry -> t2) -> t1 -> p -> t2" ...??
+--   ---> Because you're trying to return basically a function (3-part thing).
+--        Maybe make a "State" class? State = remaining-command-list current-dir current-fs . Or just a Tuple...
+--executeLs :: ([String] -> [String] -> FSEntry) -> ([String] -> [String] -> FSEntry)
+--executeLs commandList curDir curFS = commandList curDir dummyFS  --TODO!+ Probably some "takeWhile (head cmd /= '$')" for a list of FSEntry, then parse all those entries and add them to the new file system.
+executeLs :: [String] -> [String] -> FSEntry -> ([String], FSEntry)
+executeLs commandList curDir curFS = (remainingCommands, Directory "dummy" parsedEntries)
+  where entries = takeWhile (\x -> head(x) /= '$') commandList
+        parsedEntries = map parseEntry entries
+        remainingCommands = dropWhile (\x -> head (x) /= '$') commandList
+
+testCmdList = ["dir a", "14848514 b.txt", "8504156 c.dat", "dir d", "$ cd a"]
+testLs = executeLs testCmdList ["/"] (Directory "/" [])
+--TODO!+ executeGoToRootDir commandList curDir curFS = command curDir dummyFS --TODO!+
+--TODO!+ executeOneDirectoryUp commandList curDir curFS = commandList curDir dummyFS  --TODO!+
+--TODO!+ executeCd' commandList curDir curFS = commandList curDir dummyFS -- TODO!+
+
+dummyFS = (File "dummy" 2048)
+--TODO!- Used as a placeholder while building the functions.
+
+parseEntry :: String -> FSEntry
+parseEntry str =
+    if firstPart == "dir" 
+    then (Directory secondPart [])
+    else (File secondPart (read $ firstPart :: Int))
+  where firstPart = takeWhile (/= ' ') str
+        secondPart = tail $ dropWhile (/= ' ') str
+
 -- A directory is a list of files and directories.
 -- Let's call "file or directory" an FSEntry (File System Entry).
 data FSEntry = File String Int | Directory String [FSEntry] deriving (Show, Eq)
@@ -61,19 +100,19 @@ expected2 = Directory "d1" [Directory "d11" [File "new" 1024], Directory "d12"[F
 test2 = testFS actual2 expected2
 
 --------------------------------------------------------------------------------------------------------------------------
--- copyFSandAddFileInSpecificDirectory
+-- addFile
 --------------------------------------------------------------------------------------------------------------------------
 
--- copyFSandAddFileInSpecificDirectory: copy the file system, if the current directory is precisely a given subfolder, then add a file as well.
-copyFSandAddFileInSpecificDirectory :: [String] -> FSEntry -> FSEntry -> FSEntry
-copyFSandAddFileInSpecificDirectory _                     _       (File      name size    ) = File name size -- Can't add a file to a file, only to a directory.
-copyFSandAddFileInSpecificDirectory [targetDirectoryName] newFile (Directory name contents) = 
+-- addFile: copy the file system, if the current directory is precisely a given subfolder, then add a file as well.
+addFile :: [String] -> FSEntry -> FSEntry -> FSEntry
+addFile _                     _       (File      name size    ) = File name size -- Can't add a file to a file, only to a directory.
+addFile [targetDirectoryName] newFile (Directory name contents) = 
     if targetDirectoryName == name
     then Directory name (newFile:newContents)
     else Directory name (newContents)
   where newContents = map (copyFS) contents  -- Note that since we're at "[targetDirectoryName]" the subdirs aren't on the path, that path is now "[]" ....
-copyFSandAddFileInSpecificDirectory (x:xs) newFile (Directory name contents) = Directory name newContents
-  where newContents = map (copyFSandAddFileInSpecificDirectory xs newFile) contents
+addFile (x:xs) newFile (Directory name contents) = Directory name newContents
+  where newContents = map (addFile xs newFile) contents
 
 testdir = Directory "d1" 
   [  Directory "d11" [], 
@@ -87,7 +126,7 @@ testdir = Directory "d1"
 testfile1 = File "fa.txt" 1024
 
 
-actual3 = copyFSandAddFileInSpecificDirectory ["d1", "d12", "d122"] (File "fa.txt" 2048) testdir
+actual3 = addFile ["d1", "d12", "d122"] (File "fa.txt" 2048) testdir
 expected3 = Directory "d1" 
   [  Directory "d11" [], 
      Directory "d12" 
