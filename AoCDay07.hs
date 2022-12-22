@@ -2,16 +2,10 @@ import Data.List
 
 main ::  IO()
 main = do
-  filecontent <- readFile "D:\\Haskell\\MyPrograms\\AoC_2022\\AoCDay07_sample.txt"
-  let inputLines = lines filecontent
-  print $ zip [1..] inputLines
-  --let answer1 = 
-  --print $ "First packet marker: " ++ show answer1
-  --let answer2 = 
-  --print $ "First message marker: " ++ show answer2
-
-  let currentDirectory = executeCdList [] ["$ cd /", "$ cd this", "$ cd is", "$ cd ..", "$ cd was","$ cd /", "$ cd that", "$ cd will", "$ cd work"]
-  print currentDirectory
+  filecontent <- readFile "D:\\Haskell\\MyPrograms\\AoC_2022\\AoCDay07.txt"
+  --let inputLines = lines filecontent
+  let inputLines = mcve2
+  --print $ zip [1..] inputLines
 
   let filesystem = executeList (inputLines, [], (Directory "/"[]))
   print $ filesystem
@@ -22,8 +16,6 @@ main = do
   let annotedFileSystem = calculateSizes filesystem
   print annotedFileSystem
 
-  print "Almost there..."
-
   let dirSizes = directorySizes annotedFileSystem
   print dirSizes
 
@@ -33,7 +25,43 @@ main = do
   let answer1 = sum smallSizes
   print $ "The sum of all directories whose size is less than  100000 is: " ++ show answer1
 
-  -- I got "1949099" and that's too high...
+  let printableTree = printFSEntry 2 annotedFileSystem
+  putStr $ unlines printableTree
+  
+
+-- I got "1949099" and that's too high...
+-- The problem is that some entries are DUPLICATED.
+-- Not sure why, but maybe if you enter the same directory twice a new entry is made?
+mcve1 = ["$ cd /", "$ ls", "dir a", "dir b", "$ cd a", "$ ls", "1024 a.txt", "$ cd ..", "$ cd a"]  
+-- CONFIRMED: if a directory appears at the same level with the same name, ALL entries of ALL these directories are added.
+mcve2 = ["$ cd /", "$ ls", "dir dir1", "dir dir2", "$ cd dir1", "$ ls", "dir subdir", "$ cd subdir", "$ ls", "1024 a.txt", "$ cd ..", "$ cd ..", "$ cd dir2", "$ ls", "dir subdir", "$ cd subdir", "$ ls", "2048 b.txt"]
+-- /
+--       dir1
+--         subdir
+--           a.txt
+--       dir2
+--         subdir
+--           b.txt
+-- This input will add "b.txt" to BOTH cases of "subdir"!    
+-- But ONLY because the names are the same!
+-- Hence, the problem must be in executeLs, and likely in its call to "addFSEntries" which it uses. Time to manually trace that..
+
+
+-- A directory is a list of files and directories.
+-- Let's call "file or directory" an FSEntry (File System Entry).
+data FSEntry = File String Int | Directory String [FSEntry] deriving (Show, Eq)
+
+data FSEntryWithSize = FileWithSize String Int | DirectoryWithSize String Int [FSEntryWithSize] deriving (Show, Eq)
+
+spaces :: Int -> String
+spaces n = replicate n ' '
+
+-- Turn an FS Entry into a list of strings, with indentation.
+printFSEntry :: Int -> FSEntryWithSize -> [String]
+printFSEntry indentation (FileWithSize name size) = [(spaces indentation) ++ name ++ " (file, size=" ++ (show size) ++ ")"]
+printFSEntry indentation (DirectoryWithSize name _ contents) = (myHead:myTail)
+  where myHead = (replicate indentation ' ') ++ name ++ " (dir)"
+        myTail = foldl (++) [] $ map (printFSEntry (indentation + 2)) contents
 
 
 directorySizes :: FSEntryWithSize -> [(String, Int)]
@@ -46,11 +74,6 @@ directorySizesList (x:xs) = head ++ tail
   where head = directorySizes x
         tail = directorySizesList xs
 
--- A directory is a list of files and directories.
--- Let's call "file or directory" an FSEntry (File System Entry).
-data FSEntry = File String Int | Directory String [FSEntry] deriving (Show, Eq)
-
-data FSEntryWithSize = FileWithSize String Int | DirectoryWithSize String Int [FSEntryWithSize] deriving (Show, Eq)
 
 calculateSizes :: FSEntry -> FSEntryWithSize
 calculateSizes (File name size) = (FileWithSize name size)
